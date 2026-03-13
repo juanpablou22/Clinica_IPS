@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
 {
-    Schema::create('medical_exams', function (Blueprint $table) {
+    Schema::create('medical_exams', function (Blueprint $table) {//creamos la tabla medical_exams
         $table->id();
-        // Relación con el estudiante (Padre)
+        // Relación con el estudiante (Hijo)
         $table->foreignId('student_id')->constrained('students')->onDelete('restrict');
         // Relación con el usuario médico (Padre)
         $table->foreignId('user_id')->constrained('users')->onDelete('restrict');

@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
 {
-    Schema::create('students', function (Blueprint $table) {
+    Schema::create('students', function (Blueprint $table) { //creamos la tabla students
         $table->id();
         $table->string('document_number')->unique();
-        $table->string('first_name');
+        $table->string('first_name');//
         $table->string('last_name');
         $table->timestamps();
     });
