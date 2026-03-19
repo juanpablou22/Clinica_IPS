@@ -16,7 +16,7 @@ class User extends Authenticatable
 
     /**
      * Atributos asignables masivamente.
-     * Se agrega 'role_id' para vincular al usuario con su función en la clínica.
+     * Se incluye 'role_id' para la gestión de permisos en la Clínica IPS.
      */
     protected $fillable = [
         'name',
@@ -25,11 +25,17 @@ class User extends Authenticatable
         'role_id',
     ];
 
+    /**
+     * Atributos ocultos para la serialización.
+     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
+    /**
+     * Conversión de tipos de atributos.
+     */
     protected function casts(): array
     {
         return [
@@ -38,13 +44,13 @@ class User extends Authenticatable
         ];
     }
 
-    /* |
-    | Relaciones Eloquent (Lógica Profesional)
-    |
+    /* |--------------------------------------------------------------------------
+    | Relaciones Eloquent (Lógica Profesional de SnakeDev)
+    |--------------------------------------------------------------------------
     */
 
     /**
-     * Relación: Un usuario pertenece a un Rol.
+     * Relación: Un usuario pertenece a un Rol (Admin, Médico, Recepción).
      */
     public function role(): BelongsTo
     {
@@ -52,24 +58,25 @@ class User extends Authenticatable
     }
 
     /**
-     * Relación: Un médico (User) puede haber realizado muchos exámenes.
+     * Relación: Un usuario (médico) puede haber realizado y firmado muchos exámenes.
+     * Permite la trazabilidad de quién atendió a cada estudiante.
      */
     public function medicalExams(): HasMany
     {
         return $this->hasMany(MedicalExam::class);
     }
 
-    /*
-    | Helpers de Seguridad
-
+    /* |--------------------------------------------------------------------------
+    | Helpers de Seguridad y Control de Acceso
+    |--------------------------------------------------------------------------
     */
 
     /**
      * Verifica si el usuario tiene un rol específico.
-     * Útil para proteger rutas y apartados médicos.
+     * Uso: if(auth()->user()->hasRole('médico')) { ... }
      */
     public function hasRole(string $roleName): bool
     {
-        return $this->role->name === $roleName;
+        return $this->role && $this->role->name === $roleName;
     }
 }
