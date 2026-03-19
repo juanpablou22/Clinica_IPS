@@ -43,7 +43,7 @@ class MedicalExamController extends Controller
     /**
      * Muestra el formulario para registrar el resultado.
      */
-    public function create(MedicalExam $medicalExam)
+    public function evaluate(MedicalExam $medicalExam)
     {
         $userArea = Str::slug(Auth::user()->role->name, '_');
         $student = $medicalExam->student;

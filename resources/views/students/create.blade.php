@@ -10,6 +10,18 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-200">
                 <div class="p-8 text-gray-900">
 
+                    {{-- BLOQUE DE ERRORES: Vital para saber qué falta --}}
+                    @if ($errors->any())
+                        <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+                            <p class="font-bold mb-2">Por favor corrige los siguientes errores:</p>
+                            <ul class="list-disc list-inside text-sm">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <form method="POST" action="{{ route('students.store') }}" class="space-y-8">
                         @csrf
 
@@ -26,7 +38,10 @@
                                     <select id="document_type" name="document_type" class="border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-md shadow-sm block mt-1 w-full" required>
                                         <option value="TI" {{ old('document_type') == 'TI' ? 'selected' : '' }}>T.I</option>
                                         <option value="RC" {{ old('document_type') == 'RC' ? 'selected' : '' }}>R.C</option>
-                                </div>
+                                        <option value="CC" {{ old('document_type') == 'CC' ? 'selected' : '' }}>C.C</option>
+                                    </select> {{-- CORREGIDO: Faltaba cerrar el select --}}
+                                </div> {{-- CORREGIDO: Faltaba cerrar el div --}}
+
                                 <div>
                                     <x-input-label for="document_number" :value="__('Número Documento')" />
                                     <x-text-input id="document_number" class="block mt-1 w-full" type="text" name="document_number" :value="old('document_number')" required />
@@ -112,7 +127,7 @@
                         <div class="bg-blue-50 p-6 rounded-xl border border-blue-100 shadow-sm">
                             <h3 class="text-lg font-bold text-blue-700 mb-4 flex items-center">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Examenes Médicos Requeridos
+                                Exámenes Médicos Requeridos
                             </h3>
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6">
                                 @php
