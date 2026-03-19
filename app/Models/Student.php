@@ -13,47 +13,51 @@ class Student extends Model
 
     /**
      * Atributos asignables masivamente.
-     * Actualizado para el sistema escolar: Grado y Tipo de Documento.
+     * Incluye ahora toda la información del Estudiante y su Acudiente.
      */
     protected $fillable = [
-        'document_type',   // TI, CC, RC
+        // Datos del Estudiante
+        'document_type',
         'document_number',
         'first_name',
         'last_name',
-        'grade',           // Grado escolar
+        'age',
+        'gender',
+        'previous_school',
+        'grade',
+
+        // Datos del Acudiente
+        'guardian_name',
+        'guardian_lastname',
+        'guardian_document',
+        'guardian_age',
+        'guardian_phone',
+        'guardian_address',
+        'guardian_relationship',
+        'guardian_email',
     ];
 
     /* |--------------------------------------------------------------------------
-    | Relaciones Eloquent (Lógica Profesional de SnakeDev)
-    |--------------------------------------------------------------------------
-    */
+    | Relaciones Eloquent
+    |-------------------------------------------------------------------------- */
 
-    /**
-     * Relación: Un Estudiante tiene muchos Exámenes Médicos.
-     * Vital para la trazabilidad histórica de la clínica escolar.
-     */
     public function medicalExams(): HasMany
     {
         return $this->hasMany(MedicalExam::class);
     }
 
-    /**
-     * Relación: Obtiene el examen médico actual que está en proceso.
-     * Útil para acceder rápidamente desde la vista del médico.
-     */
     public function currentExam(): HasOne
     {
         return $this->hasOne(MedicalExam::class)->where('status', '!=', 'completado')->latestOfMany();
     }
 
     /* |--------------------------------------------------------------------------
-    | Helpers Profesionales (Accessors)
-    |--------------------------------------------------------------------------
-    */
+    | Helpers / Accessors (Para el Index y Show)
+    |-------------------------------------------------------------------------- */
 
     /**
-     * Obtiene el nombre completo del estudiante.
-     * Uso en Blade: {{ $student->full_name }}
+     * Nombre completo del estudiante.
+     * Uso: {{ $student->full_name }}
      */
     public function getFullNameAttribute(): string
     {
@@ -61,20 +65,19 @@ class Student extends Model
     }
 
     /**
-     * Retorna el documento con su tipo para reportes.
-     * Ejemplo: "TI - 1005974974"
+     * Nombre completo del acudiente.
+     * Uso: {{ $student->guardian_full_name }}
+     */
+    public function getGuardianFullNameAttribute(): string
+    {
+        return "{$this->guardian_name} {$this->guardian_lastname}";
+    }
+
+    /**
+     * Documento formateado: "TI - 1005974974"
      */
     public function getFullDocumentAttribute(): string
     {
         return "{$this->document_type} - {$this->document_number}";
-    }
-
-    /**
-     * Retorna el grado formateado.
-     * Uso: {{ $student->grade_label }}
-     */
-    public function getGradeLabelAttribute(): string
-    {
-        return "Grado: {$this->grade}";
     }
 }

@@ -6,37 +6,39 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     * Estructura optimizada para el sistema de matrícula y circuito médico.
-     */
     public function up(): void
     {
         Schema::create('students', function (Blueprint $table) {
             $table->id();
 
-            // Identificación (Tipo y Número Único)
+            // --- DATOS DEL ESTUDIANTE ---
             $table->string('document_type');      // RC, TI, CC
             $table->string('document_number')->unique();
-
-            // Datos Personales
             $table->string('first_name');
             $table->string('last_name');
+            $table->integer('age');               // Nueva: Edad del niño
+            $table->string('gender');            // Nueva: Sexo
+            $table->string('previous_school');    // Nueva: Colegio anterior
+            $table->string('grade');              // Grado al que aplica
 
-            // Datos Académicos
-            $table->string('grade');              // Grado escolar (ej: 5° Primaria)
+            // --- DATOS DEL ACUDIENTE (Integrados) ---
+            $table->string('guardian_name');
+            $table->string('guardian_lastname');
+            $table->string('guardian_document');
+            $table->integer('guardian_age');
+            $table->string('guardian_phone');
+            $table->string('guardian_address');
+            $table->string('guardian_relationship'); // Parentesco
+            $table->string('guardian_email');
 
             $table->timestamps();
 
-            // Índices de optimización SnakeDev
-            $table->index('document_number');     // Búsqueda rápida por documento
-            $table->index(['last_name', 'first_name']); // Búsqueda rápida por nombre completo
+            // Índices SnakeDev para velocidad en TiDB
+            $table->index('document_number');
+            $table->index(['last_name', 'first_name']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('students');
