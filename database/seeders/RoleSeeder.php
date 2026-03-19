@@ -11,6 +11,7 @@ class RoleSeeder extends Seeder
     /**
      * Run the database seeds.
      * Registra los roles oficiales para el personal de la clínica.
+     * Se usa firstOrCreate para evitar duplicados en futuras ejecuciones.
      */
     public function run(): void
     {
@@ -26,7 +27,7 @@ class RoleSeeder extends Seeder
         ];
 
         foreach ($roles as $roleName) {
-            Role::create([
+            Role::firstOrCreate([
                 'name' => $roleName
             ]);
         }

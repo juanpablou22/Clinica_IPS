@@ -8,18 +8,39 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Esta tabla es el contenedor universal para todos los especialistas de SnakeDev.
      */
     public function up(): void
-{
-    Schema::create('exam_results', function (Blueprint $table) {
-        $table->id();
-        // Relación con el examen maestro
-        $table->foreignId('medical_exam_id')->constrained('medical_exams')->onDelete('cascade');
-        $table->string('area'); // Optometría, Audiometría, etc.
-        $table->json('data'); // Aquí guardaremos los resultados específicos
-        $table->timestamps();
-    });
-}
+    {
+        Schema::create('exam_results', function (Blueprint $table) {
+            $table->id();
+
+            // Relación con el examen maestro (El circuito del estudiante)
+            $table->foreignId('medical_exam_id')
+                  ->constrained('medical_exams')
+                  ->onDelete('cascade');
+
+            // Especialista que realizó la evaluación (Auditoría Médica)
+            $table->foreignId('user_id')
+                  ->constrained('users')
+                  ->onDelete('restrict');
+
+            // Área médica: optometria, odontologia, etc. (En minúsculas para facilitar filtros)
+            $table->string('area')->index();
+
+            /**
+             * Resultados específicos en formato JSON.
+             * Ejemplo para Optometría: {"ojo_izquierdo": "20/20", "ojo_derecho": "20/40", "observacion": "Usar lentes"}
+             * Ejemplo para Odontología: {"caries": [14, 15, 18], "higiene": "buena"}
+             */
+            $table->json('data');
+
+            // Observaciones generales de esta área específica
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+        });
+    }
 
     /**
      * Reverse the migrations.
