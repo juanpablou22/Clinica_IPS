@@ -6,7 +6,7 @@ use App\Http\Controllers\MedicalExamController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login'); // INICIO DE LOGIN 
 });
 
 Route::get('/dashboard', function () {
