@@ -88,7 +88,7 @@
                                                     @csrf
                                                     <input type="hidden" name="student_id" value="{{ $student->id }}">
                                                     <button type="submit" class="text-green-600 hover:text-green-900 bg-green-50 px-3 py-1 rounded transition text-xs font-bold uppercase tracking-tighter">
-                                                        Abrir Circuito
+                                                        Resultados Medicos
                                                     </button>
                                                 </form>
 

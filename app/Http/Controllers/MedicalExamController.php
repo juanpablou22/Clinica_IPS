@@ -9,25 +9,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str; // Necesario para normalizar nombres
+use Illuminate\Support\Str; 
 
 class MedicalExamController extends Controller
 {
     /**
-     * BANDEJA DE ENTRADA POR ESPECIALIDAD
+     * BANDEJA DE ENTRADA POR ESPECIALIDAD (Pacientes Activos)
      */
     public function index()
     {
         $user = Auth::user();
-
-        // Normalizamos el área del médico igual que lo hicimos al guardar el estudiante
-        // Ejemplo: "Odontología" -> "odontologia"
         $userArea = Str::slug($user->role->name, '_');
 
-        // Buscamos exámenes que:
-        // 1. Contengan el área del médico en el JSON de 'requested_areas'
-        // 2. El estado general NO sea 'completado'
-        // 3. IMPORTANTE: Que NO tengan ya un resultado registrado para esa área específica
         $pendingExams = MedicalExam::whereJsonContains('requested_areas', $userArea)
             ->where('status', '!=', 'completado')
             ->whereDoesntHave('results', function($query) use ($userArea) {
@@ -41,6 +34,38 @@ class MedicalExamController extends Controller
     }
 
     /**
+     * HISTORIAL DE PACIENTES (Exámenes Completados)
+     */
+    public function history(Request $request)
+    {
+        $user = Auth::user();
+        $userArea = Str::slug($user->role->name, '_');
+        $roleName = Str::lower($user->role->name ?? 'invitado');
+
+        // Iniciamos la consulta base: Solo exámenes completados
+        $query = MedicalExam::where('status', 'completado')->with('student');
+
+        // Si NO es administrador, filtramos para que solo vea los historiales de su área
+        if ($roleName !== 'administrador') {
+            $query->whereJsonContains('requested_areas', $userArea);
+        }
+
+        // Lógica del buscador de la barra de navegación
+        if ($request->filled('search')) {
+            $searchTerm = $request->search;
+            $query->whereHas('student', function ($q) use ($searchTerm) {
+                $q->where('name', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('document_number', 'like', '%' . $searchTerm . '%');
+            });
+        }
+
+        // Usamos paginación para no sobrecargar la vista cuando haya miles de registros
+        $completedExams = $query->latest()->paginate(15)->withQueryString();
+
+        return view('medical_exams.history', compact('completedExams', 'userArea'));
+    }
+
+    /**
      * Muestra el formulario para registrar el resultado.
      */
     public function evaluate(MedicalExam $medicalExam)
@@ -48,13 +73,11 @@ class MedicalExamController extends Controller
         $userArea = Str::slug(Auth::user()->role->name, '_');
         $student = $medicalExam->student;
 
-        // Verificamos que el estudiante realmente necesite este examen
         if (!collect($medicalExam->requested_areas)->contains($userArea)) {
             return redirect()->route('medical_exams.index')
                              ->with('error', 'Tu especialidad no está requerida en este circuito médico.');
         }
 
-        // Evitar doble registro (doble seguridad)
         if ($medicalExam->results()->where('area', $userArea)->exists()) {
             return redirect()->route('medical_exams.index')
                              ->with('error', 'Ya has registrado un resultado para esta evaluación.');
@@ -77,7 +100,6 @@ class MedicalExamController extends Controller
 
         try {
             DB::transaction(function () use ($medicalExam, $area, $validated) {
-                // 1. Guardamos el resultado individual
                 $medicalExam->results()->create([
                     'user_id' => Auth::id(),
                     'area'    => $area,
@@ -85,17 +107,13 @@ class MedicalExamController extends Controller
                     'notes'   => $validated['notes'] ?? null,
                 ]);
 
-                // 2. Actualización de estado a 'en_proceso'
                 if ($medicalExam->status === 'pendiente') {
                     $medicalExam->update(['status' => 'en_proceso']);
                 }
 
-                // 3. Lógica de cierre automático mejorada
                 $requestedAreas = collect($medicalExam->requested_areas)->sort()->values();
                 $completedAreas = $medicalExam->results()->pluck('area')->sort()->values();
 
-                // Si el conteo coincide, marcamos como completado
-                // (Ya validamos en el index que no se repitan áreas)
                 if ($requestedAreas->count() === $completedAreas->count()) {
                     $medicalExam->update(['status' => 'completado']);
                 }

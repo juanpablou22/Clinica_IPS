@@ -22,6 +22,24 @@ class StudentController extends Controller
     }
 
     /**
+     * BUSCADOR DINÁMICO: Filtra estudiantes por nombre o documento.
+     * Utilizado para agilizar la atención y acceder al historial.
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('query');
+
+        // Buscamos coincidencias en nombres, apellidos o número de documento
+        $students = Student::where('first_name', 'LIKE', "%{$query}%")
+            ->orWhere('last_name', 'LIKE', "%{$query}%")
+            ->orWhere('document_number', 'LIKE', "%{$query}%")
+            ->limit(8) 
+            ->get();
+
+        return response()->json($students);
+    }
+
+    /**
      * Muestra el formulario de matrícula.
      */
     public function create()
@@ -91,15 +109,17 @@ class StudentController extends Controller
     }
 
     /**
-     * Muestra la ficha técnica del estudiante (Botón Ver).
+     * Muestra la ficha técnica e historial del estudiante.
      */
     public function show(Student $student)
     {
+        // Cargamos los exámenes médicos relacionados para el historial
+        $student->load('medicalExams');
         return view('students.show', compact('student'));
     }
 
     /**
-     * Muestra el formulario para editar (Botón Editar).
+     * Muestra el formulario para editar al estudiante.
      */
     public function edit(Student $student)
     {
@@ -107,12 +127,11 @@ class StudentController extends Controller
     }
 
     /**
-     * Actualiza la información en la base de datos (Estudiante + 8 campos Acudiente).
+     * Actualiza la información (Estudiante + 8 campos Acudiente).
      */
     public function update(Request $request, Student $student)
     {
         $validated = $request->validate([
-            // Validación Estudiante
             'document_type'   => 'required|in:TI,CC,RC',
             'document_number' => 'required|string|max:20|unique:students,document_number,' . $student->id,
             'first_name'      => 'required|string|max:100',
@@ -122,7 +141,7 @@ class StudentController extends Controller
             'previous_school' => 'required|string|max:255',
             'grade'           => 'required|string',
 
-            // Validación Acudiente (8 Campos)
+            // Validación Acudiente
             'guardian_name'         => 'required|string|max:100',
             'guardian_lastname'     => 'required|string|max:100',
             'guardian_document'     => 'required|string|max:20',
@@ -133,11 +152,10 @@ class StudentController extends Controller
             'guardian_email'        => 'required|email|max:100',
         ]);
 
-        // Se actualizan todos los campos validados de una vez
         $student->update($validated);
 
         return redirect()->route('students.index')
-            ->with('success', 'La ficha de ' . $student->full_name . ' ha sido actualizada correctamente.');
+            ->with('success', 'La ficha de ' . $student->first_name . ' ha sido actualizada.');
     }
 
     /**
