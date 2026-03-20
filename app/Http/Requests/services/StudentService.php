@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Services; // Namespace 
+namespace App\Services;
 
 use App\Models\Student;
-use App\Models\MedicalExam;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -20,11 +19,14 @@ class StudentService
             $student = Student::create($data);
 
             // 2. Normalizar las áreas (ej: "Medicina General" -> "medicina_general")
-            $normalizedAreas = collect($data['requested_areas'])->map(function($area) {
+            // Usamos collect() asegurando que requested_areas sea un array
+            $requestedAreas = $data['requested_areas'] ?? [];
+            
+            $normalizedAreas = collect($requestedAreas)->map(function($area) {
                 return Str::slug($area, '_');
             })->toArray();
 
-            // 3. Crear el Examen Médico vinculado
+            // 3. Crear el Examen Médico vinculado (Circuito)
             $student->medicalExams()->create([
                 'user_id'         => Auth::id(),
                 'requested_areas' => $normalizedAreas,

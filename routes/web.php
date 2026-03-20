@@ -31,43 +31,36 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     /* |--- MÓDULO DE ADMINISTRACIÓN & BRANDING ---| */
-    Route::get('/admin/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
-    Route::post('/admin/settings/update-branding', [AdminSettingsController::class, 'updateBranding'])->name('admin.update_branding');
-    Route::patch('/admin/settings/user/{user}', [AdminSettingsController::class, 'updateUser'])->name('admin.user.update');
-    Route::post('/admin/reset-access', [AdminSettingsController::class, 'resetAccess'])->name('admin.reset_access');
-    Route::get('/admin/roles/colors', [AdminSettingsController::class, 'editRoleColors'])->name('admin.role_colors');
-    Route::delete('/admin/users/{user}/permissions', [AdminSettingsController::class, 'revokePermissions'])->name('admin.users.revoke');
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('/settings', [AdminSettingsController::class, 'index'])->name('settings');
+        Route::post('/settings/update-branding', [AdminSettingsController::class, 'updateBranding'])->name('update_branding');
+        Route::patch('/settings/user/{user}', [AdminSettingsController::class, 'updateUser'])->name('user.update');
+        Route::post('/reset-access', [AdminSettingsController::class, 'resetAccess'])->name('reset_access');
+        Route::get('/roles/colors', [AdminSettingsController::class, 'editRoleColors'])->name('role_colors');
+        Route::delete('/users/{user}/permissions', [AdminSettingsController::class, 'revokePermissions'])->name('users.revoke');
+    });
 
     /* |--- MÓDULO DE ESTUDIANTES (CLIENTES) ---| */
     Route::get('/students/search', [StudentController::class, 'search'])->name('students.search');
     Route::resource('students', StudentController::class);
 
     /* |--- MÓDULO DE CIRCUITO MÉDICO ---| */
-
-    // 1. Historial de Pacientes (Debe ir arriba del resource)
+    
+    // 1. Rutas Estáticas (Deben ir antes que los parámetros dinámicos {medical_exam})
     Route::get('/medical-exams/history', [MedicalExamController::class, 'history'])->name('medical_exams.history');
 
-    Route::resource('medical-exams', MedicalExamController::class)->parameters([
-        'medical-exams' => 'medical_exam'
-    ])->names([
-        'index'   => 'medical_exams.index',
-        'create'  => 'medical_exams.create',
-        'store'   => 'medical_exams.store',
-        'show'    => 'medical_exams.show',
-        'edit'    => 'medical_exams.edit',
-        'update'  => 'medical_exams.update',
-        'destroy' => 'medical_exams.destroy',
-    ]);
-
-    // 2. Rutas de Gestión de Resultados y Evaluación
-    // Esta es la que usaremos para guardar el Odontograma y los Hábitos
-    Route::post('/medical-exams/{medical_exam}/result', [MedicalExamController::class, 'storeResult'])->name('medical_exams.store_result');
-
-    Route::patch('/medical-exams/{medical_exam}/finish', [MedicalExamController::class, 'finish'])->name('medical_exams.finish');
+    // 2. Rutas de Acción Específicas
+    // IMPORTANTE: El nombre del parámetro '{medical_exam}' debe ser idéntico al del Controlador
     Route::get('/medical-exams/{medical_exam}/evaluate', [MedicalExamController::class, 'evaluate'])->name('medical_exams.evaluate');
-
-    // 3. Generación de Reporte PDF (DomPDF)
+    Route::post('/medical-exams/{medical_exam}/result', [MedicalExamController::class, 'storeResult'])->name('medical_exams.store_result');
     Route::get('/medical-exams/{medical_exam}/report', [MedicalExamController::class, 'generateReport'])->name('medical_exams.report');
+    Route::patch('/medical-exams/{medical_exam}/finish', [MedicalExamController::class, 'finish'])->name('medical_exams.finish');
+
+    // 3. Recurso Base (Mantiene index, create, show, etc.)
+    Route::resource('medical-exams', MedicalExamController::class)
+        ->parameters(['medical-exams' => 'medical_exam'])
+        ->names('medical_exams');
+
 });
 
 require __DIR__.'/auth.php';

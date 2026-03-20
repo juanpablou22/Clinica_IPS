@@ -25,6 +25,7 @@ class StudentController extends Controller
      */
     public function index()
     {
+        // latest() ordena por fecha de creación descendente
         $students = Student::latest()->paginate(10);
         return view('students.index', compact('students'));
     }
@@ -39,27 +40,32 @@ class StudentController extends Controller
 
     /**
      * Almacena el estudiante y su circuito médico usando el Servicio.
-     * El StoreStudentRequest se encarga de validar los 17 campos antes de entrar aquí.
+     * El StoreStudentRequest valida los campos antes de ejecutar este método.
      */
     public function store(StoreStudentRequest $request)
     {
         try {
+            // Delegamos la creación del estudiante y el MedicalExam al servicio
             $this->studentService->registerWithMedicalCircuit($request->validated());
 
             return redirect()->route('students.index')
                 ->with('success', 'Estudiante matriculado y circuito iniciado con éxito.');
 
         } catch (\Exception $e) {
-            Log::error("Error en matrícula: " . $e->getMessage());
-            return back()->withInput()->withErrors(['error' => 'No se pudo completar el registro.']);
+            Log::error("Error en matrícula de estudiante: " . $e->getMessage());
+            
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'No se pudo completar el registro: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * Muestra la ficha técnica e historial.
+     * Muestra la ficha técnica e historial clínico.
      */
     public function show(Student $student)
     {
+        // Cargamos las relaciones para evitar el problema de consultas N+1
         $student->load('medicalExams.results');
         return view('students.show', compact('student'));
     }
@@ -73,18 +79,23 @@ class StudentController extends Controller
     }
 
     /**
-     * Actualiza la información del estudiante y acudiente.
+     * Actualiza la información básica del estudiante.
      */
     public function update(StoreStudentRequest $request, Student $student)
     {
-        $student->update($request->validated());
+        try {
+            $student->update($request->validated());
 
-        return redirect()->route('students.index')
-            ->with('success', "La ficha de {$student->first_name} ha sido actualizada.");
+            return redirect()->route('students.index')
+                ->with('success', "La ficha de {$student->first_name} ha sido actualizada.");
+        } catch (\Exception $e) {
+            Log::error("Error al actualizar estudiante ID {$student->id}: " . $e->getMessage());
+            return back()->withErrors(['error' => 'Error al actualizar los datos.']);
+        }
     }
 
     /**
-     * Buscador dinámico para la interfaz (AJAX).
+     * Buscador dinámico (para usar con fetch/AJAX en la vista).
      */
     public function search(Request $request)
     {
@@ -100,12 +111,17 @@ class StudentController extends Controller
     }
 
     /**
-     * Elimina el registro.
+     * Elimina el registro del estudiante (Soft Deletes recomendados en el modelo).
      */
     public function destroy(Student $student)
     {
-        $student->delete();
-        return redirect()->route('students.index')
-            ->with('success', 'Registro eliminado del sistema.');
+        try {
+            $student->delete();
+            return redirect()->route('students.index')
+                ->with('success', 'Registro eliminado del sistema.');
+        } catch (\Exception $e) {
+            Log::error("Error al eliminar estudiante: " . $e->getMessage());
+            return back()->with('error', 'No se pudo eliminar el registro.');
+        }
     }
 }
