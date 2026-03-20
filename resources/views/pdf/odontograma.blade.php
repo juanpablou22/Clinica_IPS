@@ -53,18 +53,45 @@
     <div class="section-title">CARTA DENTAL (ODONTOGRAMA)</div>
 
     <div class="odontograma-container">
-        @if($odontograma_img)
-            <img src="{{ $odontograma_img }}" class="odontograma-img">
+        @php
+            $validImage = !empty($odontograma_img) && strpos($odontograma_img, 'data:image/png;base64,') === 0 && strlen($odontograma_img) > 200;
+            $colorMap = ['white' => '#ffffff', 'red' => '#dc2626', 'blue' => '#2563eb', 'green' => '#16a34a', 'gray' => '#334155'];
+            $rows = [
+                [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28],
+                [55,54,53,52,51,61,62,63,64,65],
+                [85,84,83,82,81,71,72,73,74,75],
+                [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38],
+            ];
+
+            $toothStatus = function ($number) use ($odontograma) {
+                if (!empty($odontograma[$number]['status'])) {
+                    return $odontograma[$number]['status'];
+                }
+                return 'white';
+            };
+        @endphp
+
+        @if($validImage)
+            <img src="{{ $odontograma_img }}" class="odontograma-img" style="margin-bottom:20px; border-radius:8px; border:1px solid #cbd5e1;" />
         @else
-            <div style="padding: 50px; color: #94a3b8;">No se registró captura visual del odontograma.</div>
+            <div style="padding: 15px; color: #334155; text-align:center; font-weight:bold;">No se registró captura visual del odontograma o la imagen no es válida.</div>
         @endif
     </div>
 
     @if(count($habitos) > 0)
-        <div class="section-title">HÁBITOS REGISTRADOS</div>
+        <div class="section-title">HÁBITOS / SALUD ORAL</div>
         <ul class="habitos-list">
-            @foreach($habitos as $habito)
-                <li>{{ ucfirst(str_replace('_', ' ', $habito)) }}</li>
+            @php
+                $preguntas = [
+                    'p1' => '1. ¿Se cepilla los dientes diariamente?',
+                    'p2' => '2. ¿Ha tenido caries?',
+                    'p3' => '3. ¿Ha recibido tratamiento odontológico?',
+                    'p4' => '4. ¿Ha visitado al odontólogo en el último año?'
+                ];
+            @endphp
+
+            @foreach($habitos as $key => $valor)
+                <li><strong>{{ $preguntas[$key] ?? ucfirst(str_replace('_', ' ', $key)) }}</strong> - {{ ucfirst($valor) }}</li>
             @endforeach
         </ul>
     @endif

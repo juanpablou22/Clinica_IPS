@@ -45,6 +45,7 @@
     </div>
 
     <nav class="flex-1 px-3 space-y-2 overflow-y-auto">
+        @if($roleName === 'administrador')
         <a href="{{ route('dashboard') }}" 
            class="flex items-center p-3 rounded-xl transition group {{ request()->routeIs('dashboard') ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100' }}">
             <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,6 +53,7 @@
             </svg>
             <span x-show="sidebarOpen" class="ml-3 font-medium text-sm truncate">Inicio</span>
         </a>
+        @endif
 
         @if(in_array($roleName, ['admisión', 'admision', 'administrador']))
             <a href="{{ route('students.index') }}" 
