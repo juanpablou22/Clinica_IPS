@@ -2,91 +2,48 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Student;
 use App\Models\MedicalExam;
 use App\Models\ExamResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class MedicalExamController extends Controller
 {
-    /**
-     * BANDEJA DE ENTRADA POR ESPECIALIDAD (Pacientes Activos)
-     */
-    public function index()
+    // ... (Mantén los métodos index, history, evaluate que limpiamos antes)
+
+    public function storeResult(Request $request, MedicalExam $medical_exam)
     {
-        $user = Auth::user();
-        $userArea = Str::slug($user->role->name, '_');
+        $area = Str::slug(Auth::user()->role->name, '_');
 
-        $pendingExams = MedicalExam::whereJsonContains('requested_areas', $userArea)
-            ->where('status', '!=', 'completado')
-            ->whereDoesntHave('results', function($query) use ($userArea) {
-                $query->where('area', $userArea);
-            })
-            ->with('student')
-            ->latest()
-            ->get();
+        return DB::transaction(function () use ($medical_exam, $area, $request) {
+            // Lógica para Odontología o General
+            $data = ($area === 'odontologia') 
+                ? [
+                    'odontograma' => $request->results,
+                    'habitos' => $request->habitos ?? [],
+                    'odontograma_imagen' => $request->odontograma_imagen
+                  ]
+                : $request->except(['_token', 'notes']);
 
-        return view('medical_exams.index', compact('pendingExams', 'userArea'));
-    }
+            $medical_exam->results()->updateOrCreate(
+                ['area' => $area],
+                [
+                    'user_id' => Auth::id(),
+                    'data'    => $data,
+                    'notes'   => $request->notes ?? 'Evaluación realizada.',
+                ]
+            );
 
-    /**
-     * HISTORIAL DE PACIENTES
-     */
-    public function history(Request $request)
-    {
-        $user = Auth::user();
-        $userArea = Str::slug($user->role->name, '_');
-        $roleName = Str::lower($user->role->name ?? 'invitado');
+            // Cierre automático
+            if ($medical_exam->results()->count() === collect($medical_exam->requested_areas)->count()) {
+                $medical_exam->update(['status' => 'completado']);
+            }
 
-        $query = MedicalExam::query()->with('student');
-
-        if ($roleName !== 'administrador') {
-            $query->whereHas('results', function($q) use ($userArea) {
-                $q->where('area', $userArea);
-            });
-        } else {
-            $query->where('status', 'completado');
-        }
-
-        if ($request->filled('search')) {
-            $searchTerm = $request->search;
-            $query->whereHas('student', function ($q) use ($searchTerm) {
-                $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', '%' . $searchTerm . '%')
-                  ->orWhere('document_number', 'like', '%' . $searchTerm . '%');
-            });
-        }
-
-        $completedExams = $query->latest()->paginate(15)->withQueryString();
-
-        return view('medical_exams.history', compact('completedExams', 'userArea'));
-    }
-
-    /**
-     * Muestra el formulario para registrar el resultado.
-     */
-    public function evaluate(MedicalExam $medicalExam)
-    {
-        $userArea = Str::slug(Auth::user()->role->name, '_');
-        $student = $medicalExam->student;
-
-        if (!collect($medicalExam->requested_areas)->contains($userArea)) {
-            return redirect()->route('medical_exams.index')
-                             ->with('error', 'Tu especialidad no está requerida en este circuito.');
-        }
-
-        if ($medicalExam->results()->where('area', $userArea)->exists()) {
-            return redirect()->route('medical_exams.index')
-                             ->with('error', 'Ya has registrado un resultado para esta evaluación.');
-        }
-
-        return view('medical_exams.create', compact('student', 'medicalExam', 'userArea'));
-    }
-
+            return redirect()->route('medical_exams.index')->with('success', 'Guardado.');
+        });
     /**
      * Permite re-evaluar un examen aunque ya exista resultado previo para el área.
      */
