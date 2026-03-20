@@ -8,8 +8,7 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     * Tabla maestra del circuito médico: conecta al estudiante con las áreas solicitadas.
-     * Optimizada para SnakeDev y TiDB Cloud.
+     * Tabla maestra del circuito médico optimizada para SnakeDev.
      */
     public function up(): void
     {
@@ -28,22 +27,27 @@ return new class extends Migration
 
             /**
              * Áreas Solicitadas (JSON)
-             * Ejemplo: ["odontologia", "psicologia", "optometria"]
-             * Nota: TiDB maneja JSON de forma nativa y eficiente.
+             * Ejemplo: ["odontologia", "psicologia", "medicina_general"]
              */
             $table->json('requested_areas')->nullable();
 
+            /**
+             * RESULTADOS DE VALORACIÓN MÉDICA (JSON)
+             * Aquí guardaremos: peso, talla, imc, imc_status, 
+             * respuestas del cuestionario y notas del examen físico.
+             */
+            $table->json('results')->nullable();
+
             // Estado global del circuito: 'pendiente', 'en_proceso', 'completado'
-            // Usamos index() para que la bandeja de entrada cargue más rápido.
             $table->string('status')->default('pendiente')->index();
 
             // Resumen final del diagnóstico (llenado al finalizar todo el circuito)
             $table->text('observations')->nullable();
-            $table->string('result_type')->nullable(); // Ej: Apto, No Apto, Apto con restricciones
+            $table->string('result_type')->nullable(); // Ej: Apto, No Apto
 
             $table->timestamps();
 
-            // Índice compuesto para auditoría rápida: ¿Qué órdenes creó X usuario hoy?
+            // Índice compuesto para auditoría rápida
             $table->index(['user_id', 'created_at']);
         });
     }
