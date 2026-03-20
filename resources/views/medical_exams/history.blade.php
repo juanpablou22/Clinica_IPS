@@ -1,12 +1,14 @@
 <x-app-layout>
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            {{-- Encabezado de la Sección --}}
             <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 class="text-2xl font-bold text-slate-800">Historial de Pacientes</h2>
-                    <p class="text-slate-500 text-sm">Consulta de circuitos médicos finalizados y certificados generados.</p>
+                    <p class="text-slate-500 text-sm">Consulta de circuitos médicos finalizados y reportes odontológicos generados.</p>
                 </div>
-                
+
+                {{-- Contador de Finalizados --}}
                 <div class="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
                     <div class="p-2 bg-green-100 rounded-lg">
                         <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -20,6 +22,7 @@
                 </div>
             </div>
 
+            {{-- Tabla de Registros --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-2xl border border-slate-100">
                 @if($completedExams->isEmpty())
                     <div class="p-20 flex flex-col items-center justify-center text-center">
@@ -67,7 +70,8 @@
                                         </td>
                                         <td class="px-6 py-4 text-center">
                                             <div class="flex justify-center gap-2">
-                                                <a href="{{ route('medical_exams.show', $exam) }}" 
+                                                {{-- Ver Detalle --}}
+                                                <a href="{{ route('medical_exams.show', $exam) }}"
                                                    class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-sm transition"
                                                    title="Ver Resultados">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,12 +79,16 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                     </svg>
                                                 </a>
-                                                <button class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 hover:shadow-sm transition"
-                                                        title="Descargar Certificado">
+
+                                                {{-- Generar PDF del Odontograma --}}
+                                                <a href="{{ route('medical_exams.report', $exam) }}"
+                                                   target="_blank"
+                                                   class="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 hover:shadow-sm transition"
+                                                   title="Descargar Reporte Odontológico">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                     </svg>
-                                                </button>
+                                                </a>
                                             </div>
                                         </td>
                                     </tr>
@@ -89,6 +97,7 @@
                         </table>
                     </div>
 
+                    {{-- Paginación --}}
                     <div class="px-6 py-4 bg-slate-50/30 border-t border-slate-100">
                         {{ $completedExams->links() }}
                     </div>
