@@ -20,7 +20,7 @@ Route::get('/', function () {
 
 // Dashboard Principal
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'role:Administrador'])
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -30,13 +30,15 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    /* |--- MÓDULO DE ADMINISTRACIÓN & BRANDING ---| */
-    Route::get('/admin/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
-    Route::post('/admin/settings/update-branding', [AdminSettingsController::class, 'updateBranding'])->name('admin.update_branding');
-    Route::patch('/admin/settings/user/{user}', [AdminSettingsController::class, 'updateUser'])->name('admin.user.update');
-    Route::post('/admin/reset-access', [AdminSettingsController::class, 'resetAccess'])->name('admin.reset_access');
-    Route::get('/admin/roles/colors', [AdminSettingsController::class, 'editRoleColors'])->name('admin.role_colors');
-    Route::delete('/admin/users/{user}/permissions', [AdminSettingsController::class, 'revokePermissions'])->name('admin.users.revoke');
+    /* |--- MÓDULO DE ADMINISTRACIÓN & BRANDING (Solo Admins) ---| */
+    Route::middleware('role:Administrador')->group(function() {
+        Route::get('/admin/settings', [AdminSettingsController::class, 'index'])->name('admin.settings');
+        Route::post('/admin/settings/update-branding', [AdminSettingsController::class, 'updateBranding'])->name('admin.update_branding');
+        Route::patch('/admin/settings/user/{user}', [AdminSettingsController::class, 'updateUser'])->name('admin.user.update');
+        Route::post('/admin/reset-access', [AdminSettingsController::class, 'resetAccess'])->name('admin.reset_access');
+        Route::get('/admin/roles/colors', [AdminSettingsController::class, 'editRoleColors'])->name('admin.role_colors');
+        Route::delete('/admin/users/{user}/permissions', [AdminSettingsController::class, 'revokePermissions'])->name('admin.users.revoke');
+    });
 
     /* |--- MÓDULO DE ESTUDIANTES (CLIENTES) ---| */
     Route::get('/students/search', [StudentController::class, 'search'])->name('students.search');
@@ -65,6 +67,7 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/medical-exams/{medical_exam}/finish', [MedicalExamController::class, 'finish'])->name('medical_exams.finish');
     Route::get('/medical-exams/{medical_exam}/evaluate', [MedicalExamController::class, 'evaluate'])->name('medical_exams.evaluate');
+    Route::get('/medical-exams/{medical_exam}/revaluate', [MedicalExamController::class, 'revaluate'])->name('medical_exams.revaluate');
 
     // 3. Generación de Reporte PDF (DomPDF)
     Route::get('/medical-exams/{medical_exam}/report', [MedicalExamController::class, 'generateReport'])->name('medical_exams.report');

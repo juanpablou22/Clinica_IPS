@@ -46,6 +46,8 @@
 
                                 {{-- Campo oculto para la imagen del odontograma --}}
                                 <input type="hidden" name="odontograma_imagen" id="odontograma_imagen">
+                                {{-- Debug/info: nos permite mantener el odontograma como datos estructurados --}}
+                                <input type="hidden" name="odontograma_json" id="odontograma_json">
 
                                 <div class="space-y-10">
 
@@ -217,6 +219,94 @@
 
     {{-- Script de captura con "Seguro de Tiempo" --}}
     <script>
+        function toothColorStatus(faces) {
+            const priority = ['red', 'blue', 'green', 'gray', 'white'];
+            const values = Object.values(faces || {});
+            for (const color of priority) {
+                if (values.includes(color)) return color;
+            }
+            return 'white';
+        }
+
+        function createOdontogramRender(teethData) {
+            const colorMap = {
+                white: '#ffffff',
+                red: '#dc2626',
+                blue: '#2563eb',
+                green: '#16a34a',
+                gray: '#334155'
+            };
+
+            const rows = [
+                [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28],
+                [55,54,53,52,51,61,62,63,64,65],
+                [85,84,83,82,81,71,72,73,74,75],
+                [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38]
+            ];
+
+            const container = document.createElement('div');
+            container.setAttribute('id', 'odontograma-capture');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '-9999px';
+            container.style.backgroundColor = '#f8fafc';
+            container.style.padding = '12px';
+            container.style.border = '1px solid #cbd5e1';
+            container.style.borderRadius = '12px';
+            container.style.display = 'grid';
+            container.style.gridTemplateRows = 'repeat(4, max-content)';
+            container.style.gap = '8px';
+            container.style.zIndex = '-1';
+
+            rows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.style.display = 'flex';
+                rowDiv.style.gap = '6px';
+                row.forEach(tooth => {
+                    const status = toothColorStatus(teethData[tooth]?.faces);
+                    const cell = document.createElement('div');
+                    cell.style.width = '34px';
+                    cell.style.height = '34px';
+                    cell.style.display = 'grid';
+                    cell.style.placeItems = 'center';
+                    cell.style.background = colorMap[status] || '#ffffff';
+                    cell.style.border = '1px solid #94a3b8';
+                    cell.style.borderRadius = '6px';
+                    cell.style.fontSize = '9px';
+                    cell.style.fontWeight = '700';
+                    cell.style.color = '#0f172a';
+                    cell.textContent = tooth;
+                    rowDiv.appendChild(cell);
+                });
+                container.appendChild(rowDiv);
+            });
+
+            document.body.appendChild(container);
+            return container;
+        }
+
+        async function captureAndSubmit(captureNode) {
+            try {
+                const canvas = await html2canvas(captureNode, {
+                    backgroundColor: '#f8fafc',
+                    scale: 2,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
+                });
+
+                const base64Img = canvas.toDataURL('image/png');
+                document.getElementById('odontograma_imagen').value = base64Img;
+            } catch (error) {
+                console.error('Error html2canvas:', error);
+            } finally {
+                if (captureNode && captureNode.parentNode) {
+                    captureNode.parentNode.removeChild(captureNode);
+                }
+                document.getElementById('form-odontologia').submit();
+            }
+        }
+
         document.getElementById('form-odontologia').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -231,25 +321,27 @@
                     PROCESANDO DIAGNÓSTICO...
                 </span>`;
 
-            const captureArea = document.getElementById('capture-area');
+            Alpine.nextTick(() => {
+                const teethData = {};
+                document.querySelectorAll('[x-data="toothLogic()"]' ).forEach(tooth => {
+                    const number = tooth.querySelector('span')?.textContent?.trim();
+                    if (!number) return;
 
-            // 500ms es el tiempo perfecto: asegura el render y no desespera al usuario
-            setTimeout(() => {
-                html2canvas(captureArea, {
-                    backgroundColor: '#f8fafc',
-                    scale: 2,
-                    logging: false,
-                    useCORS: true,
-                    // Forzamos a que html2canvas espere a que todas las imágenes internas carguen
-                    allowTaint: true
-                }).then(canvas => {
-                    document.getElementById('odontograma_imagen').value = canvas.toDataURL('image/png');
-                    this.submit();
-                }).catch(error => {
-                    console.error("Error en captura:", error);
-                    this.submit();
+                    const faces = ['top', 'right', 'bottom', 'left', 'center'];
+                    teethData[number] = { faces: {} };
+                    faces.forEach(face => {
+                        const input = tooth.querySelector(`input[name="results[${face}][${number}]" ]`);
+                        if (input) {
+                            teethData[number].faces[face] = input.value;
+                        }
+                    });
                 });
-            }, 500);
+
+                document.getElementById('odontograma_json').value = JSON.stringify(teethData);
+
+                const screenCapture = createOdontogramRender(teethData);
+                captureAndSubmit(screenCapture);
+            });
         });
     </script>
 </x-app-layout>
