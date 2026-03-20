@@ -16,13 +16,15 @@ class User extends Authenticatable
 
     /**
      * Atributos asignables masivamente.
-     * Se incluye 'role_id' para la gestión de permisos en la Clínica IPS.
+     * Se integran los campos de la migración para identidad visual y cargos.
      */
     protected $fillable = [
         'name',
         'email',
         'password',
         'role_id',
+        'job_title', // Cargo profesional (ej: CEO, Odontólogo)
+        'ui_color',  // Color personalizado para el avatar y badges
     ];
 
     /**
@@ -45,12 +47,13 @@ class User extends Authenticatable
     }
 
     /* |--------------------------------------------------------------------------
-    | Relaciones Eloquent (Lógica Profesional de SnakeDev)
+    | Relaciones Eloquent - Arquitectura Snake_DEV
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Relación: Un usuario pertenece a un Rol (Admin, Médico, Recepción).
+     * Relación: Un usuario pertenece a un Rol (Administrador, Admisión, etc.).
+     * Crucial para la lógica del Sidebar y permisos de acceso.
      */
     public function role(): BelongsTo
     {
@@ -58,8 +61,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Relación: Un usuario (médico) puede haber realizado y firmado muchos exámenes.
-     * Permite la trazabilidad de quién atendió a cada estudiante.
+     * Relación: Un usuario (médico/especialista) gestiona múltiples exámenes.
      */
     public function medicalExams(): HasMany
     {
@@ -67,16 +69,16 @@ class User extends Authenticatable
     }
 
     /* |--------------------------------------------------------------------------
-    | Helpers de Seguridad y Control de Acceso
+    | Helpers de Control de Acceso
     |--------------------------------------------------------------------------
     */
 
     /**
-     * Verifica si el usuario tiene un rol específico.
-     * Uso: if(auth()->user()->hasRole('médico')) { ... }
+     * Verifica si el usuario tiene un rol específico para proteger rutas y botones.
      */
     public function hasRole(string $roleName): bool
     {
-        return $this->role && $this->role->name === $roleName;
+        // Normalizamos a minúsculas para evitar errores de digitación en la BD
+        return $this->role && strtolower($this->role->name) === strtolower($roleName);
     }
 }
