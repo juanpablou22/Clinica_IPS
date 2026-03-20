@@ -108,6 +108,15 @@
                                                     </svg>
                                                     PDF
                                                 </a>
+
+                                                <a href="{{ route('medical_exams.revaluate', $exam) }}"
+                                                   class="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg text-blue-600 text-xs font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition shadow-sm"
+                                                   title="Reevaluar Diagnóstico">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M19.418 19H14v-5m0 0l5 5m-5-5l5-5M9 9L4 4m5 5l5 5" />
+                                                    </svg>
+                                                    Reevaluar
+                                                </a>
                                             </div>
                                         </td>
                                     </tr>

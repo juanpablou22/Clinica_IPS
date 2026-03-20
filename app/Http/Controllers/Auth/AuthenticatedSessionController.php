@@ -28,7 +28,14 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = $request->user();
+
+        if ($user->hasRole('Administrador')) {
+            return redirect()->intended(route('dashboard', absolute: false));
+        }
+
+        // Para Odontología y otros roles, la página de inicio es la bandeja de pacientes.
+        return redirect()->intended(route('medical_exams.index', absolute: false));
     }
 
     /**
