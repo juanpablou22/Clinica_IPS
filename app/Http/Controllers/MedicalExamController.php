@@ -9,7 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str; 
+use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf; // Importación necesaria para el PDF
 
 class MedicalExamController extends Controller
 {
@@ -42,15 +43,12 @@ class MedicalExamController extends Controller
         $userArea = Str::slug($user->role->name, '_');
         $roleName = Str::lower($user->role->name ?? 'invitado');
 
-        // Iniciamos la consulta base: Solo exámenes completados
         $query = MedicalExam::where('status', 'completado')->with('student');
 
-        // Si NO es administrador, filtramos para que solo vea los historiales de su área
         if ($roleName !== 'administrador') {
             $query->whereJsonContains('requested_areas', $userArea);
         }
 
-        // Lógica del buscador de la barra de navegación
         if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->whereHas('student', function ($q) use ($searchTerm) {
@@ -59,7 +57,6 @@ class MedicalExamController extends Controller
             });
         }
 
-        // Usamos paginación para no sobrecargar la vista cuando haya miles de registros
         $completedExams = $query->latest()->paginate(15)->withQueryString();
 
         return view('medical_exams.history', compact('completedExams', 'userArea'));
@@ -126,6 +123,27 @@ class MedicalExamController extends Controller
             Log::error("Error al guardar examen médico: " . $e->getMessage());
             return back()->withInput()->withErrors(['error' => 'Error técnico al guardar: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * GENERAR REPORTE PDF DEL ODONTOGRAMA
+     */
+    public function generateReport(MedicalExam $medicalExam)
+    {
+        // Buscamos el resultado específico del área de odontología
+        $odontologiaResult = $medicalExam->results()
+            ->where('area', 'odontologia')
+            ->firstOrFail();
+
+        $pdf = Pdf::loadView('pdf.odontograma', [
+            'student' => $medicalExam->student,
+            'results' => $odontologiaResult->data, // Extrae el array de colores
+            'notes'   => $odontologiaResult->notes,
+            'date'    => $odontologiaResult->created_at
+        ]);
+
+        // Retorna el PDF para visualizar en el navegador
+        return $pdf->stream('Reporte_Odontologico_'.$medicalExam->student->document_number.'.pdf');
     }
 
     public function finish(MedicalExam $medicalExam)
