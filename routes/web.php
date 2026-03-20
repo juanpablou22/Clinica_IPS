@@ -58,7 +58,7 @@ Route::middleware('auth')->group(function () {
 
     // 3. Recurso Base (Mantiene index, create, show, etc.)
     Route::resource('medical-exams', MedicalExamController::class)
-        ->parameters(['medical-exams' => 'medical_exam'])
+        ->parameters(['medical-exams' => 'medical_exam']);;
         ->names('medical_exams');
 
 });
