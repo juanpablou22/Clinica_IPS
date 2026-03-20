@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Barryvdh\DomPDF\Facade\Pdf; // Importación necesaria para el PDF
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class MedicalExamController extends Controller
 {
@@ -35,7 +35,7 @@ class MedicalExamController extends Controller
     }
 
     /**
-     * HISTORIAL DE PACIENTES (Exámenes Completados)
+     * HISTORIAL DE PACIENTES
      */
     public function history(Request $request)
     {
@@ -43,16 +43,20 @@ class MedicalExamController extends Controller
         $userArea = Str::slug($user->role->name, '_');
         $roleName = Str::lower($user->role->name ?? 'invitado');
 
-        $query = MedicalExam::where('status', 'completado')->with('student');
+        $query = MedicalExam::query()->with('student');
 
         if ($roleName !== 'administrador') {
-            $query->whereJsonContains('requested_areas', $userArea);
+            $query->whereHas('results', function($q) use ($userArea) {
+                $q->where('area', $userArea);
+            });
+        } else {
+            $query->where('status', 'completado');
         }
 
         if ($request->filled('search')) {
             $searchTerm = $request->search;
             $query->whereHas('student', function ($q) use ($searchTerm) {
-                $q->where('name', 'like', '%' . $searchTerm . '%')
+                $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', '%' . $searchTerm . '%')
                   ->orWhere('document_number', 'like', '%' . $searchTerm . '%');
             });
         }
@@ -72,7 +76,7 @@ class MedicalExamController extends Controller
 
         if (!collect($medicalExam->requested_areas)->contains($userArea)) {
             return redirect()->route('medical_exams.index')
-                             ->with('error', 'Tu especialidad no está requerida en este circuito médico.');
+                             ->with('error', 'Tu especialidad no está requerida en este circuito.');
         }
 
         if ($medicalExam->results()->where('area', $userArea)->exists()) {
@@ -84,23 +88,33 @@ class MedicalExamController extends Controller
     }
 
     /**
-     * Guarda los resultados técnicos.
+     * Guarda los resultados técnicos, imagen del odontograma y hábitos.
      */
     public function storeResult(Request $request, MedicalExam $medicalExam)
     {
+        // 1. Validamos incluyendo el campo de la imagen capturada por JS
         $validated = $request->validate([
             'results' => 'required|array',
+            'habitos' => 'nullable|array',
             'notes'   => 'nullable|string',
+            'odontograma_imagen' => 'required|string' // La captura Base64 es obligatoria
         ]);
 
         $area = Str::slug(Auth::user()->role->name, '_');
 
         try {
             DB::transaction(function () use ($medicalExam, $area, $validated) {
+                // 2. Guardamos la imagen Base64 dentro del JSON 'data'
+                $finalData = [
+                    'odontograma' => $validated['results'],
+                    'habitos'     => $validated['habitos'] ?? [],
+                    'odontograma_imagen' => $validated['odontograma_imagen']
+                ];
+
                 $medicalExam->results()->create([
                     'user_id' => Auth::id(),
                     'area'    => $area,
-                    'data'    => $validated['results'],
+                    'data'    => $finalData,
                     'notes'   => $validated['notes'] ?? null,
                 ]);
 
@@ -108,48 +122,53 @@ class MedicalExamController extends Controller
                     $medicalExam->update(['status' => 'en_proceso']);
                 }
 
-                $requestedAreas = collect($medicalExam->requested_areas)->sort()->values();
-                $completedAreas = $medicalExam->results()->pluck('area')->sort()->values();
+                $requestedAreas = collect($medicalExam->requested_areas)->count();
+                $completedAreas = $medicalExam->results()->count();
 
-                if ($requestedAreas->count() === $completedAreas->count()) {
+                if ($requestedAreas === $completedAreas) {
                     $medicalExam->update(['status' => 'completado']);
                 }
             });
 
-            return redirect()->route('medical_exams.index')
-                             ->with('success', "Evaluación de " . str_replace('_', ' ', ucfirst($area)) . " guardada correctamente.");
+            return redirect()->route('medical_exams.history')
+                             ->with('success', "Evaluación guardada y captura generada correctamente.");
 
         } catch (\Exception $e) {
-            Log::error("Error al guardar examen médico: " . $e->getMessage());
-            return back()->withInput()->withErrors(['error' => 'Error técnico al guardar: ' . $e->getMessage()]);
+            Log::error("Error al guardar examen: " . $e->getMessage());
+            return back()->withInput()->withErrors(['error' => 'Error al guardar: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * GENERAR REPORTE PDF DEL ODONTOGRAMA
+     * GENERAR REPORTE PDF (Con soporte para imágenes Base64)
      */
     public function generateReport(MedicalExam $medicalExam)
     {
-        // Buscamos el resultado específico del área de odontología
         $odontologiaResult = $medicalExam->results()
             ->where('area', 'odontologia')
             ->firstOrFail();
 
+        // Extraemos la imagen (string Base64) que guardamos en storeResult
+        $imageData = $odontologiaResult->data['odontograma_imagen'] ?? null;
+
         $pdf = Pdf::loadView('pdf.odontograma', [
             'student' => $medicalExam->student,
-            'results' => $odontologiaResult->data, // Extrae el array de colores
+            'habitos' => $odontologiaResult->data['habitos'] ?? [],
+            'odontograma_img' => $imageData,
             'notes'   => $odontologiaResult->notes,
             'date'    => $odontologiaResult->created_at
+        ])->setOption([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true // Permite procesar la imagen capturada
         ]);
 
-        // Retorna el PDF para visualizar en el navegador
         return $pdf->stream('Reporte_Odontologico_'.$medicalExam->student->document_number.'.pdf');
     }
 
     public function finish(MedicalExam $medicalExam)
     {
         $medicalExam->update(['status' => 'completado']);
-        return redirect()->route('medical_exams.index')
-                         ->with('success', 'El circuito médico ha sido cerrado manualmente.');
+        return redirect()->route('medical_exams.history')
+                         ->with('success', 'Circuito cerrado manualmente.');
     }
 }

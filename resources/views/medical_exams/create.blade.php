@@ -2,13 +2,16 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Circuito Médico Activo - Odontología') }}
+                {{ __('Valoracion Médica Activa - Odontología') }}
             </h2>
             <span class="px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold shadow-sm border border-blue-200">
                 Estudiante: {{ $student->full_name }}
             </span>
         </div>
     </x-slot>
+
+    {{-- Librería para convertir HTML a Imagen --}}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <div class="py-12" x-data="{ tab: '{{ $userArea }}' }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -38,39 +41,19 @@
                 <div class="lg:col-span-3">
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-200">
                         <div class="p-8">
-                            <form action="{{ route('medical_exams.store_result', $medicalExam) }}" method="POST">
+                            <form id="form-odontologia" action="{{ route('medical_exams.store_result', $medicalExam) }}" method="POST">
                                 @csrf
 
+                                {{-- Campo oculto para la imagen del odontograma --}}
+                                <input type="hidden" name="odontograma_imagen" id="odontograma_imagen">
+
                                 <div class="space-y-10">
-                                    {{-- 1. SECCIÓN DE HALLAZGOS (Checkboxes restaurados) --}}
-                                    <div class="bg-white p-6 rounded-xl border border-slate-200">
-                                        <h4 class="text-slate-700 font-bold mb-6 flex items-center gap-2">
-                                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                            </svg>
-                                            Evaluación Clínica General
-                                        </h4>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            @foreach([
-                                                'Caries Dental', 'Gingivitis', 'Periodontitis',
-                                                'Maloclusión', 'Higiene Oral Deficiente', 'Placa Bacteriana',
-                                                'Cálculos Dentales', 'Diente Ausente', 'Diente Supernumerario',
-                                                'Restauración Desajustada', 'Absceso Periapical', 'Tratamiento Pulpar'
-                                            ] as $hallazgo)
-                                                <label class="relative flex items-center p-3 rounded-lg border border-gray-100 hover:bg-slate-50 cursor-pointer transition">
-                                                    <input type="checkbox" name="hallazgos[]" value="{{ $hallazgo }}" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                                    <span class="ml-3 text-sm text-gray-700 font-medium">{{ $hallazgo }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-
-                                    {{-- 2. ODONTOGRAMA INTERACTIVO --}}
-                                    <div class="bg-slate-50 p-8 rounded-3xl border border-slate-200 shadow-inner">
+                                    {{-- 1. ODONTOGRAMA INTERACTIVO --}}
+                                    <div id="capture-area" class="bg-slate-50 p-8 rounded-3xl border border-slate-200 shadow-inner">
                                         <h4 class="text-slate-500 font-black mb-10 text-xs uppercase text-center tracking-[0.2em]">Odontograma Interactivo (Dentición Mixta)</h4>
 
-                                        <div class="flex flex-wrap justify-center gap-6 mb-12 border-b border-slate-200 pb-8">
+                                        <div class="flex flex-wrap justify-center gap-6 mb-12 border-b border-slate-200 pb-8" data-html2canvas-ignore>
                                             @foreach(['white' => 'Sano', 'red' => 'Caries', 'blue' => 'Obturado', 'green' => 'Sellante', 'gray' => 'Ausente'] as $color => $label)
                                                 <div class="flex items-center gap-2">
                                                     <div class="w-5 h-5 rounded border border-black {{ $color === 'white' ? 'bg-white' : ($color === 'red' ? 'bg-red-600' : ($color === 'blue' ? 'bg-blue-600' : ($color === 'green' ? 'bg-green-500' : 'bg-gray-800'))) }}"></div>
@@ -175,15 +158,52 @@
                                         </div>
                                     </div>
 
+                                    {{-- 2. SECCIÓN DE ANTECEDENTES Y HÁBITOS --}}
+                                    <div class="bg-blue-50/40 p-6 rounded-xl border border-blue-100 shadow-sm">
+                                        <h4 class="text-blue-700 font-bold mb-6 flex items-center gap-2 uppercase text-xs tracking-[0.1em]">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                            </svg>
+                                            Antecedentes y Hábitos
+                                        </h4>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            @php
+                                                $preguntas = [
+                                                    'p1' => '1. ¿Se cepilla los dientes diariamente?',
+                                                    'p2' => '2. ¿Ha tenido caries anteriormente?',
+                                                    'p3' => '3. ¿Ha recibido tratamiento dental?',
+                                                    'p4' => '4. ¿Visitó al odontólogo el último año?'
+                                                ];
+                                            @endphp
+
+                                            @foreach($preguntas as $key => $pregunta)
+                                                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                                    <p class="text-sm font-semibold text-gray-700 mb-3">{{ $pregunta }}</p>
+                                                    <div class="flex gap-6">
+                                                        <label class="flex items-center cursor-pointer group">
+                                                            <input type="radio" name="habitos[{{ $key }}]" value="si" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" required>
+                                                            <span class="ml-2 text-sm text-gray-600 group-hover:text-blue-600 transition">Sí</span>
+                                                        </label>
+                                                        <label class="flex items-center cursor-pointer group">
+                                                            <input type="radio" name="habitos[{{ $key }}]" value="no" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" required>
+                                                            <span class="ml-2 text-sm text-gray-600 group-hover:text-blue-600 transition">No</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
                                     {{-- Observaciones Finales --}}
                                     <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Observaciones Clínicas</label>
-                                        <textarea name="notes" rows="4" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Escriba aquí el diagnóstico general o hallazgos importantes..."></textarea>
+                                        <label class="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Observaciones Clínicas / Recomendaciones</label>
+                                        <textarea name="notes" rows="4" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Escriba aquí el diagnóstico general o recomendaciones..."></textarea>
                                     </div>
                                 </div>
 
                                 <div class="mt-8 flex justify-end">
-                                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
+                                    <button type="submit" id="btn-save" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg shadow-lg transition duration-200 transform hover:scale-105">
                                         GUARDAR DIAGNÓSTICO
                                     </button>
                                 </div>
@@ -194,4 +214,42 @@
             </div>
         </div>
     </div>
+
+    {{-- Script de captura con "Seguro de Tiempo" --}}
+    <script>
+        document.getElementById('form-odontologia').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('btn-save');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <span class="flex items-center gap-2">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    PROCESANDO DIAGNÓSTICO...
+                </span>`;
+
+            const captureArea = document.getElementById('capture-area');
+
+            // 500ms es el tiempo perfecto: asegura el render y no desespera al usuario
+            setTimeout(() => {
+                html2canvas(captureArea, {
+                    backgroundColor: '#f8fafc',
+                    scale: 2,
+                    logging: false,
+                    useCORS: true,
+                    // Forzamos a que html2canvas espere a que todas las imágenes internas carguen
+                    allowTaint: true
+                }).then(canvas => {
+                    document.getElementById('odontograma_imagen').value = canvas.toDataURL('image/png');
+                    this.submit();
+                }).catch(error => {
+                    console.error("Error en captura:", error);
+                    this.submit();
+                });
+            }, 500);
+        });
+    </script>
 </x-app-layout>
