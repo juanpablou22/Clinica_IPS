@@ -11,9 +11,6 @@ class ExamResult extends Model
 {
     use HasFactory;
 
-    /**
-     * Atributos asignables masivamente.
-     */
     protected $fillable = [
         'medical_exam_id',
         'user_id',
@@ -22,10 +19,6 @@ class ExamResult extends Model
         'notes',
     ];
 
-    /**
-     * Conversión de tipos (Casting).
-     * Laravel convertirá automáticamente el JSON en un array de PHP.
-     */
     protected $casts = [
         'data' => 'array',
         'medical_exam_id' => 'integer',
@@ -36,45 +29,58 @@ class ExamResult extends Model
     | Relaciones Eloquent
     |-------------------------------------------------------------------------- */
 
-    /**
-     * Un Resultado pertenece al circuito maestro.
-     */
     public function medicalExam(): BelongsTo
     {
         return $this->belongsTo(MedicalExam::class);
     }
 
-    /**
-     * Un Resultado fue registrado por un Especialista (User).
-     */
     public function specialist(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
     /* |--------------------------------------------------------------------------
-    | Accessors & Mutators (Modern Syntax Laravel 9+)
+    | Accessors & Mutators (Corregidos para Snake_DEV)
     |-------------------------------------------------------------------------- */
 
     /**
-     * Formatea el nombre del área (ej: 'psicologia' -> 'Psicologia').
+     * IMPORTANTE: El nombre de la función debe ser igual al campo 'area'
      */
     protected function area(): Attribute
     {
         return Attribute::make(
             get: fn (string $value) => ucfirst($value),
-            set: fn (string $value) => strtolower($value), // Asegura consistencia al guardar
+            set: fn (string $value) => strtolower($value),
         );
     }
 
     /**
-     * Helper para obtener el IMC directamente si es área de medicina.
-     * Uso en Blade: $result->imc
+     * Accessor virtual para el IMC.
+     * Como no existe una columna 'imc', Laravel lo tratará como un atributo dinámico.
      */
     protected function imc(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->data['imc'] ?? 'N/A',
+            get: fn () => $this->data['biometria']['imc'] ?? ($this->data['imc'] ?? 'N/A'),
+        );
+    }
+
+    /**
+     * Accessor para obtener el color del estado del IMC
+     */
+    protected function statusColor(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $status = $this->data['biometria']['imc_status'] ?? ($this->data['imc_status'] ?? '');
+                return match ($status) {
+                    'Normal' => 'text-green-600 bg-green-50',
+                    'Sobrepeso' => 'text-yellow-600 bg-yellow-50',
+                    'Obesidad' => 'text-red-600 bg-red-50',
+                    'Bajo Peso' => 'text-orange-600 bg-orange-50',
+                    default => 'text-slate-400 bg-slate-50',
+                };
+            },
         );
     }
 
@@ -82,11 +88,9 @@ class ExamResult extends Model
     | Métodos de Utilidad
     |-------------------------------------------------------------------------- */
 
-    /**
-     * Verifica si este resultado pertenece a un área específica.
-     */
     public function isArea(string $areaName): bool
     {
-        return strtolower($this->area) === strtolower($areaName);
+        // Usamos $this->attributes['area'] para evitar el ucfirst del accessor al comparar
+        return strtolower($this->getRawOriginal('area')) === strtolower($areaName);
     }
 }
