@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -12,9 +13,6 @@ class ExamResult extends Model
 
     /**
      * Atributos asignables masivamente.
-     * 'area' identifica la especialidad (ej: 'psicologia').
-     * 'data' contendrá el formulario dinámico en formato JSON.
-     * 'user_id' es el ID del médico que realizó la evaluación.
      */
     protected $fillable = [
         'medical_exam_id',
@@ -26,20 +24,20 @@ class ExamResult extends Model
 
     /**
      * Conversión de tipos (Casting).
-     * Esto es VITAL: Laravel convertirá automáticamente el JSON de la BD
-     * en un array de PHP para que lo manipules fácilmente.
+     * Laravel convertirá automáticamente el JSON en un array de PHP.
      */
     protected $casts = [
         'data' => 'array',
+        'medical_exam_id' => 'integer',
+        'user_id' => 'integer',
     ];
 
     /* |--------------------------------------------------------------------------
-    | Relaciones Eloquent (Lógica Profesional de SnakeDev)
-    |--------------------------------------------------------------------------
-    */
+    | Relaciones Eloquent
+    |-------------------------------------------------------------------------- */
 
     /**
-     * Relación: Un Resultado pertenece a un Examen Médico maestro (Circuito).
+     * Un Resultado pertenece al circuito maestro.
      */
     public function medicalExam(): BelongsTo
     {
@@ -47,7 +45,7 @@ class ExamResult extends Model
     }
 
     /**
-     * Relación: Un Resultado fue registrado por un Usuario (Especialista).
+     * Un Resultado fue registrado por un Especialista (User).
      */
     public function specialist(): BelongsTo
     {
@@ -55,16 +53,40 @@ class ExamResult extends Model
     }
 
     /* |--------------------------------------------------------------------------
-    | Helpers de Formateo
-    |--------------------------------------------------------------------------
-    */
+    | Accessors & Mutators (Modern Syntax Laravel 9+)
+    |-------------------------------------------------------------------------- */
 
     /**
-     * Obtiene el nombre del área con la primera letra en mayúscula.
-     * Uso: $result->formatted_area
+     * Formatea el nombre del área (ej: 'psicologia' -> 'Psicologia').
      */
-    public function getFormattedAreaAttribute(): string
+    protected function area(): Attribute
     {
-        return ucfirst($this->area);
+        return Attribute::make(
+            get: fn (string $value) => ucfirst($value),
+            set: fn (string $value) => strtolower($value), // Asegura consistencia al guardar
+        );
+    }
+
+    /**
+     * Helper para obtener el IMC directamente si es área de medicina.
+     * Uso en Blade: $result->imc
+     */
+    protected function imc(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->data['imc'] ?? 'N/A',
+        );
+    }
+
+    /* |--------------------------------------------------------------------------
+    | Métodos de Utilidad
+    |-------------------------------------------------------------------------- */
+
+    /**
+     * Verifica si este resultado pertenece a un área específica.
+     */
+    public function isArea(string $areaName): bool
+    {
+        return strtolower($this->area) === strtolower($areaName);
     }
 }
