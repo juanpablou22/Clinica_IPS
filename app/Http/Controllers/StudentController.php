@@ -3,17 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
-use App\Models\MedicalExam;
+use App\Http\Requests\StoreStudentRequest;
+use App\Services\StudentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
+    protected $studentService;
+
     /**
-     * Lista de estudiantes matriculados.
+     * Inyectamos el Servicio para manejar la lógica de negocio.
+     */
+    public function __construct(StudentService $studentService)
+    {
+        $this->studentService = $studentService;
+    }
+
+    /**
+     * Lista de estudiantes con paginación.
      */
     public function index()
     {
@@ -22,25 +30,7 @@ class StudentController extends Controller
     }
 
     /**
-     * BUSCADOR DINÁMICO: Filtra estudiantes por nombre o documento.
-     * Utilizado para agilizar la atención y acceder al historial.
-     */
-    public function search(Request $request)
-    {
-        $query = $request->get('query');
-
-        // Buscamos coincidencias en nombres, apellidos o número de documento
-        $students = Student::where('first_name', 'LIKE', "%{$query}%")
-            ->orWhere('last_name', 'LIKE', "%{$query}%")
-            ->orWhere('document_number', 'LIKE', "%{$query}%")
-            ->limit(8) 
-            ->get();
-
-        return response()->json($students);
-    }
-
-    /**
-     * Muestra el formulario de matrícula.
+     * Formulario de creación.
      */
     public function create()
     {
@@ -48,78 +38,34 @@ class StudentController extends Controller
     }
 
     /**
-     * Guarda el estudiante y genera automáticamente el circuito médico.
+     * Almacena el estudiante y su circuito médico usando el Servicio.
+     * El StoreStudentRequest se encarga de validar los 17 campos antes de entrar aquí.
      */
-    public function store(Request $request)
+    public function store(StoreStudentRequest $request)
     {
-        $validated = $request->validate([
-            // Datos Estudiante
-            'document_type'   => 'required|in:TI,CC,RC',
-            'document_number' => 'required|string|unique:students,document_number|max:20',
-            'first_name'      => 'required|string|max:100',
-            'last_name'       => 'required|string|max:100',
-            'age'             => 'required|integer|min:3|max:20',
-            'gender'          => 'required|string',
-            'previous_school' => 'required|string|max:255',
-            'grade'           => 'required|string|max:50',
-
-            // Datos Acudiente (8 Campos)
-            'guardian_name'         => 'required|string|max:100',
-            'guardian_lastname'     => 'required|string|max:100',
-            'guardian_document'     => 'required|string|max:20',
-            'guardian_age'          => 'required|integer',
-            'guardian_phone'        => 'required|string|max:20',
-            'guardian_address'      => 'required|string|max:255',
-            'guardian_relationship' => 'required|string|max:50',
-            'guardian_email'        => 'required|email|max:100',
-
-            // Circuito
-            'requested_areas' => 'required|array|min:1',
-        ], [
-            'document_number.unique' => 'Error: Este número de documento ya está matriculado.',
-            'requested_areas.required' => 'Debe seleccionar al menos un área para el circuito médico.',
-        ]);
-
         try {
-            DB::beginTransaction();
-
-            $student = Student::create($validated);
-
-            $normalizedAreas = collect($validated['requested_areas'])->map(function($area) {
-                return Str::slug($area, '_');
-            })->toArray();
-
-            MedicalExam::create([
-                'student_id'      => $student->id,
-                'user_id'         => Auth::id(),
-                'requested_areas' => $normalizedAreas,
-                'status'          => 'pendiente',
-            ]);
-
-            DB::commit();
+            $this->studentService->registerWithMedicalCircuit($request->validated());
 
             return redirect()->route('students.index')
-                ->with('success', 'Estudiante matriculado y circuito médico iniciado con éxito.');
+                ->with('success', 'Estudiante matriculado y circuito iniciado con éxito.');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Error en matrícula/circuito: " . $e->getMessage());
-            return back()->withInput()->withErrors(['error' => 'No se pudo completar el registro: ' . $e->getMessage()]);
+            Log::error("Error en matrícula: " . $e->getMessage());
+            return back()->withInput()->withErrors(['error' => 'No se pudo completar el registro.']);
         }
     }
 
     /**
-     * Muestra la ficha técnica e historial del estudiante.
+     * Muestra la ficha técnica e historial.
      */
     public function show(Student $student)
     {
-        // Cargamos los exámenes médicos relacionados para el historial
-        $student->load('medicalExams');
+        $student->load('medicalExams.results');
         return view('students.show', compact('student'));
     }
 
     /**
-     * Muestra el formulario para editar al estudiante.
+     * Formulario de edición.
      */
     public function edit(Student $student)
     {
@@ -127,39 +73,34 @@ class StudentController extends Controller
     }
 
     /**
-     * Actualiza la información (Estudiante + 8 campos Acudiente).
+     * Actualiza la información del estudiante y acudiente.
      */
-    public function update(Request $request, Student $student)
+    public function update(StoreStudentRequest $request, Student $student)
     {
-        $validated = $request->validate([
-            'document_type'   => 'required|in:TI,CC,RC',
-            'document_number' => 'required|string|max:20|unique:students,document_number,' . $student->id,
-            'first_name'      => 'required|string|max:100',
-            'last_name'       => 'required|string|max:100',
-            'age'             => 'required|integer',
-            'gender'          => 'required|string',
-            'previous_school' => 'required|string|max:255',
-            'grade'           => 'required|string',
-
-            // Validación Acudiente
-            'guardian_name'         => 'required|string|max:100',
-            'guardian_lastname'     => 'required|string|max:100',
-            'guardian_document'     => 'required|string|max:20',
-            'guardian_age'          => 'required|integer',
-            'guardian_phone'        => 'required|string|max:20',
-            'guardian_address'      => 'required|string|max:255',
-            'guardian_relationship' => 'required|string|max:50',
-            'guardian_email'        => 'required|email|max:100',
-        ]);
-
-        $student->update($validated);
+        $student->update($request->validated());
 
         return redirect()->route('students.index')
-            ->with('success', 'La ficha de ' . $student->first_name . ' ha sido actualizada.');
+            ->with('success', "La ficha de {$student->first_name} ha sido actualizada.");
     }
 
     /**
-     * Elimina el registro del estudiante.
+     * Buscador dinámico para la interfaz (AJAX).
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('query');
+
+        $students = Student::where('first_name', 'LIKE', "%{$query}%")
+            ->orWhere('last_name', 'LIKE', "%{$query}%")
+            ->orWhere('document_number', 'LIKE', "%{$query}%")
+            ->limit(8)
+            ->get();
+
+        return response()->json($students);
+    }
+
+    /**
+     * Elimina el registro.
      */
     public function destroy(Student $student)
     {
